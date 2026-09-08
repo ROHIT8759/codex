@@ -63,7 +63,7 @@ impl ToolExecutor<ToolInvocation> for RequestUserInputAsyncHandler {
         ToolSpec::Function(ResponsesApiTool {
             name: TOOL_NAME.to_string(),
             description: self.description.clone().unwrap_or_else(|| {
-                "Ask the user one or more questions during ongoing work. Use this tool only to request missing information, preferences, constraints, clarification, or approval. The tool returns immediately without ending the turn or waiting for a reply; any reply arrives asynchronously as a new user message. Keep questions concise, self-contained, and easy to understand, using a level of detail appropriate to the user and task. The UI always allows a free-text answer, including when suggested options are provided. A preselected option is not submitted automatically."
+                "Ask the user one or more questions during ongoing work. Use this tool only to request missing information, preferences, constraints, clarification, or approval. The tool returns immediately without ending the turn or waiting for a reply; any reply arrives asynchronously as a new user message. Keep questions concise, self-contained, and easy to understand, using a level of detail appropriate to the user and task. The UI always allows a free-text answer, including when suggested options are provided. A preselected option is not submitted automatically. IMPORTANT: after calling this tool, do not emit a final summary or task-completion message until you have received the user's reply to each pending question. If the user sends a side or status message before answering, respond to it and then re-state the original pending question so no decision is silently dropped."
                     .to_string()
             }),
             strict: false,
