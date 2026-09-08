@@ -11,7 +11,16 @@ impl AsyncQuestions {
             return;
         }
         let was_empty = self.state.pending.is_empty();
-        let expires_at = (!self.expanded).then(|| Instant::now() + Duration::from_secs(30));
+        // Decision questions (those with options) must not auto-expire: they represent a
+        // pending choice the model is waiting on, and silently discarding them after 30 s
+        // leaves the agent blocked without any visible indication.  The timer is only
+        // appropriate for free-text informational questions that the agent can reasonably
+        // continue without.
+        let has_decision_question = questions
+            .iter()
+            .any(|q| q.options.as_ref().is_some_and(|o| !o.is_empty()));
+        let expires_at = (!self.expanded && !has_decision_question)
+            .then(|| Instant::now() + Duration::from_secs(30));
         self.state.pending.extend(questions.iter().map(|question| {
             // Bound work before cloning or wrapping model-authored suggestions.
             let question = AsyncUserInputQuestion {
