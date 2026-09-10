@@ -580,7 +580,11 @@ impl Session {
         config
             .startup_warnings
             .extend(user_instruction_provider_warnings);
-        let exec_policy = if crate::guardian::is_basic_session_source(&session_source) {
+        let isolation = thread_extension_init
+            .get::<codex_extension_api::SessionIsolation>()
+            .map(|policy| *policy)
+            .unwrap_or_default();
+        let exec_policy = if isolation == codex_extension_api::SessionIsolation::Isolated {
             let managed_policy = config
                 .config_layer_stack
                 .requirements()
@@ -1932,6 +1936,11 @@ impl Session {
     }
 
     pub(crate) async fn refresh_runtime_config(&self, next_config: Config) {
+        self.refresh_runtime_config_inner(next_config, /*refresh_recording*/ true)
+            .await;
+    }
+
+    async fn refresh_runtime_config_inner(&self, next_config: Config, refresh_recording: bool) {
         // Refresh only the user layer from the incoming snapshot. Preserve thread-local
         // layers such as request/session overrides that were present when this session
         // was created.
@@ -1950,6 +1959,13 @@ impl Session {
             config.mcp_servers = next_config.mcp_servers.clone();
             config.mcp_optional_startup_grace = next_config.mcp_optional_startup_grace;
             config.mcp_oauth_credentials_store_mode = next_config.mcp_oauth_credentials_store_mode;
+            // Recording can follow rollout changes without changing the session's
+            // execution features (including Code Mode's dispatch gate).
+            if refresh_recording {
+                self.services
+                    .executed_tool_calls
+                    .refresh(&next_config.features);
+            }
             if let Err(err) = config.features.set_enabled(
                 Feature::Mcp20260728,
                 next_config.features.enabled(Feature::Mcp20260728),
@@ -2144,7 +2160,10 @@ impl Session {
         };
         self.services.skills_service.clear_cache();
         self.services.plugins_manager.clear_cache();
-        self.refresh_runtime_config(next_config).await;
+        // This legacy snapshot still has the original execution features, not
+        // the host's latest rollout settings. Leave the live recorder alone.
+        self.refresh_runtime_config_inner(next_config, /*refresh_recording*/ false)
+            .await;
     }
 
     /// Record a terminal CodexErr before the app-server completion notification is reduced.

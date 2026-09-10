@@ -6592,7 +6592,8 @@ pub(crate) async fn make_session_and_context() -> (Session, TurnContext) {
     ));
     let network_approval = Arc::new(NetworkApprovalService::default());
     let mcp_runtime = Arc::new(codex_mcp::McpRuntime::empty(config.prefix_mcp_tool_names()));
-    let executed_tool_calls = crate::state::ExecutedToolCalls::new(&config.features);
+    let executed_tool_calls =
+        crate::state::ExecutedToolCalls::new(&config.features, &InitialHistory::Forked(Vec::new()));
     let (hooks, async_hook_results) = Hooks::new(
         HooksConfig {
             legacy_notify_argv: config.notify.clone(),
@@ -6700,6 +6701,7 @@ pub(crate) async fn make_session_and_context() -> (Session, TurnContext) {
         managed_network_proxy_refresh_lock: Semaphore::new(/*permits*/ 1),
         features: config.features.clone(),
         guardian_context_mode: GuardianContextMode::from_features(&config.features),
+        isolation: codex_extension_api::SessionIsolation::Inherit,
         windows_sandbox_proxy_settings_mode:
             codex_sandboxing::WindowsSandboxProxySettingsMode::Reconcile,
         multi_agent_version: OnceLock::from(config.multi_agent_version_from_features()),
@@ -8764,7 +8766,8 @@ where
     ));
     let network_approval = Arc::new(NetworkApprovalService::default());
     let mcp_runtime = Arc::new(codex_mcp::McpRuntime::empty(config.prefix_mcp_tool_names()));
-    let executed_tool_calls = crate::state::ExecutedToolCalls::new(&config.features);
+    let executed_tool_calls =
+        crate::state::ExecutedToolCalls::new(&config.features, &InitialHistory::Forked(Vec::new()));
     let (hooks, async_hook_results) = Hooks::new(
         HooksConfig {
             legacy_notify_argv: config.notify.clone(),
@@ -8872,6 +8875,7 @@ where
         managed_network_proxy_refresh_lock: Semaphore::new(/*permits*/ 1),
         features: config.features.clone(),
         guardian_context_mode: GuardianContextMode::from_features(&config.features),
+        isolation: codex_extension_api::SessionIsolation::Inherit,
         windows_sandbox_proxy_settings_mode:
             codex_sandboxing::WindowsSandboxProxySettingsMode::Reconcile,
         multi_agent_version: OnceLock::from(config.multi_agent_version_from_features()),
