@@ -1,8 +1,12 @@
 mod capabilities;
 mod contributors;
 mod registry;
+mod session_isolation;
 mod state;
+mod turn_admission;
 mod user_instructions;
+
+pub use session_isolation::SessionIsolation;
 
 pub use capabilities::AgentSpawnFuture;
 pub use capabilities::AgentSpawner;
@@ -97,6 +101,7 @@ pub use registry::ExtensionRegistryBuilder;
 pub use registry::empty_extension_registry;
 pub use state::ExtensionData;
 pub use state::ExtensionDataInit;
+pub use turn_admission::TurnStartAdmission;
 pub use user_instructions::Instructions;
 pub use user_instructions::LoadUserInstructionsFuture;
 pub use user_instructions::LoadedUserInstructions;
