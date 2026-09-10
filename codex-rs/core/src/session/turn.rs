@@ -321,8 +321,13 @@ pub(crate) async fn run_turn(
         return Ok(None);
     }
     if crate::guardian::is_basic_session_source(&turn_context.session_source)
-        && let Err(error) =
-            crate::guardian::finalize_guardian_input(&sess, &first_step_context, &mut input).await
+        && let Err(error) = crate::guardian::finalize_guardian_input(
+            &sess,
+            &first_step_context,
+            &mut input,
+            codex_guardian_context::HistoryTruncation::Preserve,
+        )
+        .await
     {
         // Token-budget compaction resets history, which can discard the evidence
         // referenced by a pending delta review. Leave budget failures unreusable.
@@ -333,6 +338,9 @@ pub(crate) async fn run_turn(
         }
         // Incoming evidence can overflow even below the normal history
         // threshold. Keep it pending while compacting, then select once more.
+        sess.services
+            .thread_extension_data
+            .insert(crate::guardian::ExhaustedReviewBudget::Compacting);
         run_auto_compact(
             &sess,
             Arc::clone(&first_step_context),
@@ -346,7 +354,13 @@ pub(crate) async fn run_turn(
         world_state = sess
             .record_context_updates_and_set_reference_context_item(first_step_context.as_ref())
             .await?;
-        crate::guardian::finalize_guardian_input(&sess, &first_step_context, &mut input).await?;
+        crate::guardian::finalize_guardian_input(
+            &sess,
+            &first_step_context,
+            &mut input,
+            codex_guardian_context::HistoryTruncation::Allow,
+        )
+        .await?;
     }
     let mut can_drain_pending_input = input.is_empty();
     if run_hooks_and_record_inputs(
@@ -704,6 +718,9 @@ pub(crate) async fn run_turn(
                 // token-budget resets must fail closed and retire the reviewer.
                 // Retry once per model step, so ineffective compaction cannot loop.
                 guardian_budget_compacted = true;
+                sess.services
+                    .thread_extension_data
+                    .insert(crate::guardian::ExhaustedReviewBudget::Compacting);
                 run_auto_compact(
                     &sess,
                     Arc::clone(&step_context),

@@ -35,6 +35,8 @@ async fn run_review_preserves_evidence_during_parent_compaction() {
         /*live_network_config*/ None,
         &params.model,
         params.reasoning_effort.clone(),
+        params.reasoning_summary,
+        params.personality,
         /*model_messages*/ None,
     )
     .unwrap();
@@ -210,6 +212,8 @@ async fn test_review_params() -> GuardianReviewSessionParams {
         /*live_network_config*/ None,
         model.as_str(),
         reasoning_effort.clone(),
+        reasoning_summary,
+        personality,
         /*model_messages*/ None,
     )
     .expect("guardian config");
@@ -279,6 +283,8 @@ async fn guardian_review_session_config_change_invalidates_cached_session() {
         /*live_network_config*/ None,
         "active-model",
         /*reasoning_effort*/ None,
+        ReasoningSummaryConfig::default(),
+        /*personality*/ None,
         /*model_messages*/ None,
     )
     .expect("cached guardian config");
@@ -297,6 +303,8 @@ async fn guardian_review_session_config_change_invalidates_cached_session() {
         /*live_network_config*/ None,
         "active-model",
         /*reasoning_effort*/ None,
+        ReasoningSummaryConfig::default(),
+        /*personality*/ None,
         /*model_messages*/ None,
     )
     .expect("next guardian config");
@@ -474,6 +482,8 @@ async fn guardian_review_session_compact_scope_change_invalidates_cached_session
         /*live_network_config*/ None,
         "active-model",
         /*reasoning_effort*/ None,
+        ReasoningSummaryConfig::default(),
+        /*personality*/ None,
         /*model_messages*/ None,
     )
     .expect("cached guardian config");
@@ -492,6 +502,8 @@ async fn guardian_review_session_compact_scope_change_invalidates_cached_session
         /*live_network_config*/ None,
         "active-model",
         /*reasoning_effort*/ None,
+        ReasoningSummaryConfig::default(),
+        /*personality*/ None,
         /*model_messages*/ None,
     )
     .expect("next guardian config");
@@ -518,6 +530,8 @@ async fn guardian_review_session_config_disables_hooks() {
         /*live_network_config*/ None,
         "active-model",
         /*reasoning_effort*/ None,
+        ReasoningSummaryConfig::default(),
+        /*personality*/ None,
         /*model_messages*/ None,
     )
     .expect("guardian config");
@@ -535,6 +549,8 @@ async fn guardian_review_session_config_disables_skill_instructions() {
         /*live_network_config*/ None,
         "active-model",
         /*reasoning_effort*/ None,
+        ReasoningSummaryConfig::default(),
+        /*personality*/ None,
         /*model_messages*/ None,
     )
     .expect("guardian config");
@@ -574,6 +590,8 @@ async fn guardian_review_session_config_prefers_managed_policy_and_uses_catalog_
         /*live_network_config*/ None,
         "active-model",
         /*reasoning_effort*/ None,
+        ReasoningSummaryConfig::default(),
+        /*personality*/ None,
         Some(&model_messages),
     )
     .expect("guardian config");
@@ -616,6 +634,8 @@ async fn guardian_review_session_config_preserves_explicit_empty_catalog_policy(
         /*live_network_config*/ None,
         "active-model",
         /*reasoning_effort*/ None,
+        ReasoningSummaryConfig::default(),
+        /*personality*/ None,
         Some(&model_messages),
     )
     .expect("guardian config");
@@ -666,6 +686,8 @@ async fn guardian_review_session_config_preserves_explicit_empty_catalog_templat
         /*live_network_config*/ None,
         "active-model",
         /*reasoning_effort*/ None,
+        ReasoningSummaryConfig::default(),
+        /*personality*/ None,
         Some(&model_messages),
     )
     .expect("guardian config");
@@ -1157,9 +1179,17 @@ async fn interrupt_and_drain_turn_ignores_prior_turn_completion() {
         .await
         .expect("queue current turn abort");
 
-    interrupt_and_drain_turn(&review_session, "current-turn")
-        .await
-        .expect("drain current turn");
+    let cancellation = CancellationToken::new();
+    cancellation.cancel();
+    let (_, reusable, _) = wait_for_guardian_review(
+        &review_session,
+        "current-turn",
+        tokio::time::Instant::now(),
+        Some(&cancellation),
+        &mut GuardianReviewAnalyticsResult::without_session(),
+    )
+    .await;
+    assert!(reusable);
 
     assert!(review_session.io.rx_event.try_recv().is_err());
 }
